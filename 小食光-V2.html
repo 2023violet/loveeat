@@ -2867,6 +2867,8 @@ const ACTIONS = {
     if (!name) { toast('菜名总要写一个'); return; }
     if (!(price >= 0) || !(time >= 0)) { toast('价格和分钟数得是数字'); return; }
     const editId = state.editDishId, wishId = state.formForWish;
+    const dup = state.dishes.find(x => x.name === name && x.id !== editId);
+    if (dup) { toast('菜单里已经有「' + name + '」了，换个名字吧'); return; }
     const editDish = editId ? state.dishes.find(x => x.id === editId) : null;
     const cat = g('dn-cat') || 'yingle';
     /* 内置菜可能同时属于多个分类（家常 + 素菜）；只改别的字段时保留原分类 */
