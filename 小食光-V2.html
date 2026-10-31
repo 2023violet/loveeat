@@ -2127,7 +2127,7 @@ function renderDetail() {
     '</div>';
   $('#detail-actions').innerHTML = chef
     ? '<button class="btn btn-ghost" style="min-width:56px" data-action="dish-edit" data-id="' + esc(d.id) + '" aria-label="编辑' + esc(d.name) + '">' + IC('note') + '</button>' +
-      '<button class="btn btn-ghost" data-action="dish-del" data-id="' + esc(d.id) + '">' + IC('trash', 'width:19px;height:19px') + ' 下架这道菜</button>' +
+      '<button class="btn btn-ghost" data-action="dish-del" data-id="' + esc(d.id) + '">' + IC('trash', 'width:19px;height:19px') + ' 下架</button>' +
       '<button class="btn btn-primary" style="flex:1" data-action="nav" data-target="kitchen" data-dir="back">回工作台</button>'
     : '<button class="btn btn-ghost" style="min-width:56px" data-action="fav" data-id="' + esc(d.id) + '" aria-label="' +
       (fav ? '取消收藏' : '收藏') + esc(d.name) + '" aria-pressed="' + fav + '">' + IC(fav ? 'heart-fill' : 'heart') + '</button>' +
