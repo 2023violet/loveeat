@@ -2,8 +2,9 @@
    规则：任何一项不过 → exit 1；体积超预算只 warn，不算失败（体积不是正确性问题） */
 const fs = require('fs');
 const vm = require('vm');
+const path = require('path');
 
-const P = process.argv[2] || 'C:/Users/zsj_5/Documents/Qoder/2026-10-29/78e0c6f6/小食光-V2.html';
+const P = process.argv[2] || path.join(__dirname, '..', '小食光-V2.html');
 const html = fs.readFileSync(P, 'utf8');
 const fails = [];
 const warns = [];
