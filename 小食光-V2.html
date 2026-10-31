@@ -1701,17 +1701,17 @@ function hayOf(d) {
 }
 function matchScore(d, kw) {
   if (!kw) return 1;
-  const k = kw.toLowerCase();
+  const k = kw.replace(/\s+/g, '').toLowerCase();
   const hay = hayOf(d);
-  const syn = SYNONYM[kw];
+  const syn = SYNONYM[k];
   if (syn) {
     if (syn.some(t => tagsOf(d).indexOf(t) >= 0)) return 2;
-    if (STRICT_SYNONYM.indexOf(kw) >= 0) return 0;
+    if (STRICT_SYNONYM.indexOf(k) >= 0) return 0;
   }
   if (hay.indexOf(k) >= 0) return 2;
-  const catHit = (d.cats || []).some(c => { const cc = CATS.find(x => x.id === c); return cc && cc.label.indexOf(kw) >= 0; });
+  const catHit = (d.cats || []).some(c => { const cc = CATS.find(x => x.id === c); return cc && cc.label.indexOf(k) >= 0; });
   if (catHit) return 2;
-  const set = Array.from(new Set(k.replace(/\s/g, '')));
+  const set = Array.from(new Set(k));
   if (!set.length) return 1;
   const hit = set.filter(ch => hay.indexOf(ch) >= 0).length;
   return hit / set.length >= .6 ? 1 : 0;

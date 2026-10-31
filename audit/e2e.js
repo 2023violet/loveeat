@@ -129,6 +129,10 @@ function cleanup() {
       const noSpicy = filteredDishes();
       ok('搜索不辣只返回不辣', noSpicy.length > 0 && noSpicy.every(d => d.spicy === 0),
         noSpicy.length + ' 道，辣菜 ' + noSpicy.filter(d => d.spicy > 0).length);
+      state.q = '不 辣'; renderHome();
+      const noSpicySpaced = filteredDishes();
+      ok('搜索不辣兼容空格', noSpicySpaced.length > 0 && noSpicySpaced.every(d => d.spicy === 0),
+        noSpicySpaced.length + ' 道，辣菜 ' + noSpicySpaced.filter(d => d.spicy > 0).length);
 
       state.q = ''; state.filters = {}; state.cat = 'all'; state.renderLimit = RENDER_STEP; renderHome();
       click('[data-card="fanqie"] [data-action="add"]');
