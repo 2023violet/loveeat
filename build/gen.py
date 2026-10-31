@@ -3,12 +3,16 @@
 数据源：build/dishes_1.py / dishes_2.py / dishes_3.py 里的 D 列表
 产物：把 JSON 注入 小食光-V2.html 的 <script type="application/json" id="seed-dishes"> 块
 
+菜品 ID 策略：扩展菜用"菜名 SHA-1 前 12 位"生成稳定 ID，不再用会随排序变化的位置 ID。
+旧位置 ID → 新稳定 ID 的映射冻结在 build/legacy_ids.json，运行时用于迁移本地存档。
+
 运行：python build/gen.py
 """
-import io, json, re, sys, os
+import io, json, re, sys, os, hashlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HTML = os.path.join(ROOT, '小食光-V2.html')
+LEGACY_FILE = os.path.join(ROOT, 'build', 'legacy_ids.json')
 
 # 主料 → 插画 key（8 张主料级 symbol，见 HTML 里的 art-pork 等）
 ART_BY_MAIN = {
@@ -95,6 +99,18 @@ EXISTING_NAMES = {
     '蒜蓉西兰花', '干煸豆角', '香菇滑鸡', '鱼香肉丝', '宫保鸡丁', '蛋炒饭',
     '紫菜蛋花汤', '冬瓜丸子汤',
 }
+# 内置菜的 ID 是手写 slug，扩展菜的稳定 ID 不能和它们撞
+RESERVED_IDS = {
+    'hongshaorou', 'jinian', 'kele', 'zhengyu', 'mapo', 'fanqie', 'congyou', 'jufan',
+    'tang', 'buding', 'fanqiechao', 'tudousi', 'xilanhua', 'doujiao', 'huaji',
+    'yuxiang', 'gongbao', 'danchaofan', 'zicaitang', 'donggua',
+}
+
+
+def stable_id(name):
+    """菜名 → 稳定 ID。改名等于新菜，必须同时更新 legacy_ids.json"""
+    return 'd' + hashlib.sha1(name.encode('utf-8')).hexdigest()[:12]
+
 
 
 def cats_of(d):
@@ -128,7 +144,17 @@ def build():
         exec(io.open(p, encoding='utf-8').read(), ns)
         data.extend(ns['D'])
 
-    seen_id, seen_name, out = set(), set(), []
+    legacy = {}
+    if os.path.exists(LEGACY_FILE):
+        legacy = json.load(io.open(LEGACY_FILE, encoding='utf-8'))
+        if not isinstance(legacy, dict):
+            print('build/legacy_ids.json 必须是 JSON 对象')
+            return 1
+    else:
+        print('找不到 build/legacy_ids.json：旧位置 ID 的迁移映射不能重建，拒绝生成')
+        return 1
+
+    seen_id, seen_name, out = set(RESERVED_IDS), set(), []
     for row in data:
         (name, cuisine, main, method, price, time_, spicy, desc, ing, steps, *rest) = row
         note = rest[0] if rest else ''
@@ -137,7 +163,9 @@ def build():
                 print('  跳过（内置已有）：' + name)
             continue
         seen_name.add(name)
-        slug = 'd' + str(len(out) + 1)
+        slug = stable_id(name)
+        if slug in seen_id:
+            raise ValueError('菜品 ID 冲突：%s -> %s，请检查菜名或 collision 策略' % (name, slug))
         cuisine = '融合' if cuisine == '家常' else cuisine
         d = {
             'id': slug, 'name': name,
@@ -156,16 +184,17 @@ def build():
         out.append(d)
         seen_id.add(slug)
 
-    payload = {'dishes': out}
+    payload = {'dishes': out, 'legacyIds': legacy}
     js = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
-    html = io.open(HTML, encoding='utf-8').read()
+    html = io.open(HTML, encoding='utf-8', newline='').read()
     pat = re.compile(r'(<script type="application/json" id="seed-dishes">)([\s\S]*?)(</script>)')
     if not pat.search(html):
         print('找不到 seed-dishes 占位块，先改 HTML')
         return 1
     html = pat.sub(lambda m: m.group(1) + js + m.group(3), html, count=1)
-    io.open(HTML, 'w', encoding='utf-8').write(html)
-    print('注入 %d 道菜，JSON %d 字符，HTML 现在 %d 行' % (len(out), len(js), html.count('\n') + 1))
+    io.open(HTML, 'w', encoding='utf-8', newline='').write(html)
+    print('注入 %d 道菜，旧 ID 映射 %d 条，JSON %d 字符，HTML 现在 %d 行' % (
+        len(out), len(legacy), len(js), html.count('\n') + 1))
     # 分类分布
     from collections import Counter
     c = Counter()
