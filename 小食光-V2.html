@@ -2867,9 +2867,14 @@ const ACTIONS = {
     if (!name) { toast('菜名总要写一个'); return; }
     if (!(price >= 0) || !(time >= 0)) { toast('价格和分钟数得是数字'); return; }
     const editId = state.editDishId, wishId = state.formForWish;
+    const editDish = editId ? state.dishes.find(x => x.id === editId) : null;
+    const cat = g('dn-cat') || 'yingle';
+    /* 内置菜可能同时属于多个分类（家常 + 素菜）；只改别的字段时保留原分类 */
+    const oldCats = editDish && Array.isArray(editDish.cats) ? editDish.cats : [];
+    const cats = editDish && oldCats[0] === cat ? oldCats.slice() : [cat];
     const art = state.pickedArt || ART_KEYS[0];
     const fields = {
-      name: name, cats: [g('dn-cat') || 'yingle'],
+      name: name, cats: cats,
       cuisine: g('dn-cuisine') || '融合', main: g('dn-main') || '蔬菜', method: g('dn-method') || '炒',
       price: +price.toFixed(1), time: time, spicy: +g('dn-spicy') || 0, art: art,
       desc: g('dn-desc') || (editId ? '' : '刚进菜单，等着被翻牌'),

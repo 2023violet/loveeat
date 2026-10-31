@@ -257,6 +257,16 @@ function cleanup() {
       ok('下架新增菜', !state.dishes.some(d => d.id === added.id) && state.removedIds.includes(added.id), state.removedIds.length);
       ok('下架清理收藏', !state.favs.includes(added.id), state.favs.length);
 
+      /* 编辑多分类内置菜：不能因为保存而丢掉第二分类 */
+      const tdPrice = dish('tudousi').price;
+      state.kitchenQ = '青椒土豆丝'; renderKitchen();
+      click('[data-action="dish-edit"][data-id="tudousi"]');
+      document.querySelector('#dn-price').value = String(tdPrice + 1);
+      click('[data-action="dish-submit"]');
+      const tdAfter = dish('tudousi');
+      ok('编辑保留多分类', tdAfter.cats.indexOf('jiachang') >= 0 && tdAfter.cats.indexOf('sucai') >= 0 && tdAfter.price === tdPrice + 1,
+        tdAfter.cats.join('/') + ' · ' + tdAfter.price);
+
       /* 持久化与旧 ID 迁移 */
       saveNow();
       const saved = JSON.parse(localStorage.getItem(LS_KEY));
