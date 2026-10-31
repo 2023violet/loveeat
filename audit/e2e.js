@@ -291,9 +291,14 @@ function cleanup() {
         && probe.favs[0] === newId && probe.removedIds[0] === newId && probe.detailId === newId
         && probe.orders[0].items[newId] === 1 && !!probe.orders[0].snap[newId], newId);
 
-      const fontLink = document.querySelector('link[href*="fonts.loli.net/css2"]');
-      ok('字体 CSS 非阻塞加载', !!fontLink && fontLink.getAttribute('onload') === "this.media='all'",
-        fontLink && fontLink.getAttribute('media'));
+      const fontLinks = document.querySelectorAll('link[href*="fonts.loli.net"], link[href*="fileup.chatglm.cn"]');
+      const allStyleText = Array.from(document.querySelectorAll('style')).map(s => s.textContent).join('');
+      ok('字体已内嵌且零外部字体请求', fontLinks.length === 0 && allStyleText.indexOf('data:font/woff2;base64') >= 0,
+        fontLinks.length + ' link');
+      await document.fonts.ready;
+      const loadedFonts = Array.from(document.fonts).filter(f => /ZCOOL|Baloo/.test(f.family));
+      ok('内嵌字体已加载', loadedFonts.length >= 2 && loadedFonts.every(f => f.status === 'loaded'),
+        loadedFonts.map(f => f.family + ':' + f.status).join(' | '));
 
       ok('收尾账本一致', balanceCheck(), state.wallet.balance);
     } catch (e) {

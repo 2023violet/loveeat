@@ -72,14 +72,15 @@ if (path.resolve(P) === path.resolve(DEFAULT_P)) {
     const jsDir = path.join(src, 'js');
     const jsFiles = fs.readdirSync(jsDir).filter(n => n.endsWith('.js')).sort();
     const srcApp = jsFiles.map(n => fs.readFileSync(path.join(jsDir, n), 'utf8')).join('\n').trim();
-    const srcCss = fs.readFileSync(path.join(src, 'styles.css'), 'utf8').trim();
+    const srcCss = (fs.readFileSync(path.join(src, 'fonts.css'), 'utf8') + '\n' +
+      fs.readFileSync(path.join(src, 'styles.css'), 'utf8')).trim();
     const srcData = fs.readFileSync(path.join(src, 'seed-dishes.json'), 'utf8');
     const cssBlock = (html.match(/<style[^>]*>([\s\S]*?)<\/style>/) || [, ''])[1].trim();
     const dataBlock = (html.match(/<script type="application\/json"[^>]*>([\s\S]*?)<\/script>/) || [, ''])[1];
     let sameData = false;
     try { sameData = JSON.stringify(JSON.parse(srcData)) === JSON.stringify(JSON.parse(dataBlock)); } catch (e) {}
     log(js.trim() === srcApp, 'JS 与 src/js/*.js 一致', js.trim() === srcApp ? '' : '先运行 python build/bundle.py');
-    log(cssBlock === srcCss, 'CSS 与 src/styles.css 一致', cssBlock === srcCss ? '' : '先运行 python build/bundle.py');
+    log(cssBlock === srcCss, 'CSS 与 src/fonts.css + styles.css 一致', cssBlock === srcCss ? '' : '先运行 python build/bundle.py');
     log(sameData, '数据与 src/seed-dishes.json 一致', sameData ? '' : '先运行 python build/gen.py');
   } catch (e) {
     log(false, '源码与打包产物一致', e.message);

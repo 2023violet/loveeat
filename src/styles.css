@@ -1,7 +1,3 @@
-/* 寒蝉正楷 · 平台 OSS 分片加载（大厨情话 / 食评手写字体；楷体兜底） */
-@font-face{font-family:"ChillKai";src:url(https://fileup.chatglm.cn/chatglm-operation/ChillKai/file/44/440fb6ae60) format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+0020-00FF;}
-@font-face{font-family:"ChillKai";src:url(https://fileup.chatglm.cn/chatglm-operation/ChillKai/file/9d/9dea0f4c28) format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+3000-303F,U+2010-2027,U+FF00-FFEF;}
-@font-face{font-family:"ChillKai";src:url(https://fileup.chatglm.cn/chatglm-operation/ChillKai/file/eb/ebda4b10a4) format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+4E00-9FFF;}
 /* ============ 设计 Token：草莓奶油小厨房 v2 ============ */
 :root{
   --bg:#FFF6EF;            /* 奶油米白 */
@@ -32,7 +28,7 @@
   --ease:cubic-bezier(.2,0,0,1);
   --font-title:"ZCOOL KuaiLe","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   --font-body:-apple-system,BlinkMacSystemFont,"PingFang SC","HarmonyOS Sans SC","MiSans","Source Han Sans SC","Noto Sans SC","Microsoft YaHei",sans-serif;
-  --font-hand:"ChillKai","Kaiti SC","STKaiti","KaiTi","PingFang SC","Microsoft YaHei",serif;
+  --font-hand:"Kaiti SC","STKaiti","KaiTi","PingFang SC","Microsoft YaHei",serif;
   --font-num:"Baloo 2","ZCOOL KuaiLe","PingFang SC","Microsoft YaHei",sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box}

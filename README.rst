@@ -19,6 +19,10 @@
     # 改了菜谱数据后，重新生成数据并自动打包
     python build/gen.py
 
+    # 大量改文案/新增生僻字后，重新生成内嵌字体子集（需要 fonttools、brotli 和网络）
+    python build/fonts.py
+    python build/bundle.py
+
     # 静态检查（不传路径时默认检查打包产物）
     node audit/check.js
 
@@ -35,6 +39,7 @@
     小食光-V2.html          发布产物：由 src/ + build/bundle.py 生成，不要直接手改
     src/template.html       静态页面、SVG、弹窗和屏结构
     src/styles.css          设计 token、组件样式、响应式规则
+    src/fonts.css           内嵌 base64 的 ZCOOL KuaiLe / Baloo 2 子集字体
     src/js/01-data.js       数据层、文案池、筛选维度
     src/js/02-state.js      状态、存储、迁移、派生与工具
     src/js/03-render.js     八屏渲染
@@ -43,10 +48,12 @@
     build/dishes_1.py ...   扩展菜谱原始数据
     build/gen.py            生成 src/seed-dishes.json，并调用 bundle.py 打包
     build/bundle.py         把模板、CSS、JS、数据打包成 小食光-V2.html
+    build/fonts.py          按当前文案重新生成 src/fonts.css
     build/legacy_ids.json   冻结的旧菜品 ID -> 新稳定 ID 映射，不要随手删改
     audit/check.js          静态检查：语法、动作实现、关键函数/常量、文案 key、插画引用
     audit/e2e.js            端到端检查：自检 + 主流程 + 持久化 + 旧 ID 迁移
     audit/tmp-hero.html     早期视觉稿临时文件，不被主文件引用
+    THIRD_PARTY_NOTICES.rst 内嵌字体的 SIL OFL 许可文本
 
 菜品 ID 策略（改数据前必读）
 ---------------------------
@@ -69,7 +76,7 @@
     4. node audit/e2e.js
     5. 提交
 
-只改 src/styles.css / src/app.js / src/template.html 时，运行 python build/bundle.py 即可；这三处不要直接改输出文件 小食光-V2.html。
+只改 src/styles.css / src/fonts.css / src/js/*.js / src/template.html 时，运行 python build/bundle.py 即可；这些源码不要直接改输出文件 小食光-V2.html。
 
 核心架构
 --------
@@ -86,10 +93,18 @@
 * 撒娇闭环：零花钱页展示今天的撒娇记录，待批/已批金额/拒绝理由都能看到。
 * 调试入口：浏览器控制台里的 window.__XSG。
 
+字体
+----
+
+* ZCOOL KuaiLe（标题）和 Baloo 2（数字）按当前文案子集化后以 base64 内嵌在 src/fonts.css，发布产物零外部字体请求。
+* 手写体改用系统楷体（Kaiti SC / STKaiti / KaiTi），不再下载寒蝉正楷。
+* 新增生僻字或大量改文案后，运行 python build/fonts.py 重新子集化，再运行 python build/bundle.py；否则新字会回退到系统字体。
+* 字体许可全文见 THIRD_PARTY_NOTICES.rst。
+
 已知限制
 --------
 
 * 发布产物仍是单文件，打包后 JS 约 2099 行；源码已按数据/状态/渲染/动作拆到 src/js/，后续可继续按模块细化。
 * 角色切换是本机演示，不是实时同步；厨房页内也有提示。
-* 字体 CSS 已改为异步加载；离线时使用系统字体兜底。
+* 字体按当前文案子集化；新增生僻字不会自动进入内嵌字体，需要重新运行 build/fonts.py。
 * audit/tmp-hero.html 是未引用的临时文件，保留仅作视觉参考。

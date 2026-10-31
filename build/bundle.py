@@ -30,7 +30,8 @@ def read_js():
 
 def build():
     template = read(os.path.join(SRC, 'template.html'))
-    styles = read(FILES['@@XSG_STYLES@@'])
+    fonts = read(os.path.join(SRC, 'fonts.css'))
+    styles = fonts + '\n' + read(FILES['@@XSG_STYLES@@'])
     app = read_js()
     payload = json.loads(read(FILES['@@XSG_DATA@@']))
     data = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
