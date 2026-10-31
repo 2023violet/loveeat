@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 """小食光菜品数据生成器
 数据源：build/dishes_1.py / dishes_2.py / dishes_3.py 里的 D 列表
-产物：把 JSON 注入 小食光-V2.html 的 <script type="application/json" id="seed-dishes"> 块
+产物：写入 src/seed-dishes.json，再调用 build/bundle.py 打包成 小食光-V2.html
 
 菜品 ID 策略：扩展菜用"菜名 SHA-1 前 12 位"生成稳定 ID，不再用会随排序变化的位置 ID。
 旧位置 ID → 新稳定 ID 的映射冻结在 build/legacy_ids.json，运行时用于迁移本地存档。
 
 运行：python build/gen.py
 """
-import io, json, re, sys, os, hashlib
+import io, json, sys, os, hashlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-HTML = os.path.join(ROOT, '小食光-V2.html')
+SRC = os.path.join(ROOT, 'src')
+SRC_DATA = os.path.join(SRC, 'seed-dishes.json')
 LEGACY_FILE = os.path.join(ROOT, 'build', 'legacy_ids.json')
 
 # 主料 → 插画 key（8 张主料级 symbol，见 HTML 里的 art-pork 等）
@@ -185,16 +186,11 @@ def build():
         seen_id.add(slug)
 
     payload = {'dishes': out, 'legacyIds': legacy}
-    js = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
-    html = io.open(HTML, encoding='utf-8', newline='').read()
-    pat = re.compile(r'(<script type="application/json" id="seed-dishes">)([\s\S]*?)(</script>)')
-    if not pat.search(html):
-        print('找不到 seed-dishes 占位块，先改 HTML')
-        return 1
-    html = pat.sub(lambda m: m.group(1) + js + m.group(3), html, count=1)
-    io.open(HTML, 'w', encoding='utf-8', newline='').write(html)
-    print('注入 %d 道菜，旧 ID 映射 %d 条，JSON %d 字符，HTML 现在 %d 行' % (
-        len(out), len(legacy), len(js), html.count('\n') + 1))
+    compact = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
+    os.makedirs(SRC, exist_ok=True)
+    io.open(SRC_DATA, 'w', encoding='utf-8', newline='').write(
+        json.dumps(payload, ensure_ascii=False, indent=2) + '\n')
+    print('生成 %d 道菜，旧 ID 映射 %d 条，数据 %d 字符（打包前）' % (len(out), len(legacy), len(compact)))
     # 分类分布
     from collections import Counter
     c = Counter()
@@ -202,7 +198,9 @@ def build():
         for k in d['cats']:
             c[k] += 1
     print('分类分布：' + ' '.join('%s=%d' % (k, v) for k, v in sorted(c.items())))
-    return 0
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import bundle
+    return bundle.build()
 
 
 if __name__ == '__main__':

@@ -3,17 +3,23 @@
 
 移动端电子菜谱 / 点菜原型。一个大厨、一个宝贝，用同一台手机切换身份：宝贝点菜、撒娇、评价；大厨接单、开火、开饭、管理菜单。
 
-当前是单文件本地演示版：没有后端、没有账号、没有实时同步，数据存在浏览器 localStorage。
+当前是本地演示版：没有后端、没有账号、没有实时同步，数据存在浏览器 localStorage。源码拆分为模板 / CSS / JS / 数据四部分，发布时打包成单文件 HTML，保持双击即用。
 
 快速开始
 --------
 
 ::
 
-    # 直接打开（不需要构建）
+    # 直接打开（仓库里已有打包好的产物）
     start 小食光-V2.html
 
-    # 静态检查（不传路径时默认检查仓库根目录的主文件）
+    # 只改了 CSS / JS / 模板后，重新打包
+    python build/bundle.py
+
+    # 改了菜谱数据后，重新生成数据并自动打包
+    python build/gen.py
+
+    # 静态检查（不传路径时默认检查打包产物）
     node audit/check.js
 
     # 端到端检查（需要本机 Edge/Chrome；可用 XSG_BROWSER 指定路径）
@@ -26,9 +32,14 @@
 
 ::
 
-    小食光-V2.html          唯一运行产物：CSS、SVG、菜谱 JSON、JS 全部内联
+    小食光-V2.html          发布产物：由 src/ + build/bundle.py 生成，不要直接手改
+    src/template.html       静态页面、SVG、弹窗和屏结构
+    src/styles.css          设计 token、组件样式、响应式规则
+    src/app.js              状态机、渲染、动作表、自检逻辑
+    src/seed-dishes.json    生成后的菜谱 JSON（含历史 ID 映射）
     build/dishes_1.py ...   扩展菜谱原始数据
-    build/gen.py            读取菜谱数据，生成并注入 seed-dishes JSON
+    build/gen.py            生成 src/seed-dishes.json，并调用 bundle.py 打包
+    build/bundle.py         把模板、CSS、JS、数据打包成 小食光-V2.html
     build/legacy_ids.json   冻结的旧菜品 ID -> 新稳定 ID 映射，不要随手删改
     audit/check.js          静态检查：语法、动作实现、关键函数/常量、文案 key、插画引用
     audit/e2e.js            端到端检查：自检 + 主流程 + 持久化 + 旧 ID 迁移
@@ -39,7 +50,7 @@
 
 * 内置 20 道菜使用手写 ID（如 hongshaorou）。
 * 扩展菜使用菜名 SHA-1 前 12 位：d6248f88c0b96 这种形式，与排序、插入位置无关。
-* 旧版本的位置 ID（d1、d2...）对应新 ID 的映射冻结在 build/legacy_ids.json，由 gen.py 注入 HTML 的 legacyIds。运行时 migrateLegacyDishIds() 会把本地存档里的菜品、购物车、收藏、订单条目、订单快照、下架记录一起迁移。
+* 旧版本的位置 ID（d1、d2...）对应新 ID 的映射冻结在 build/legacy_ids.json，由 gen.py 写入 src/seed-dishes.json，再由 bundle.py 打包进 HTML。运行时 migrateLegacyDishIds() 会把本地存档里的菜品、购物车、收藏、订单条目、订单快照、下架记录一起迁移。
 * 不要重新生成 legacy_ids.json。它记录的是历史存档的映射，不是当前数据。
 * 改名等于新建一道菜：稳定 ID 由菜名计算，改名后旧 ID 不会自动跟过去。需要保留旧评价/收藏时，必须另写迁移。
 * 新增菜只需要在 dishes_*.py 里追加；重新运行 python build/gen.py 即可，已有菜的 ID 不变。
@@ -50,10 +61,12 @@
 ::
 
     1. 编辑 build/dishes_*.py
-    2. python build/gen.py
+    2. python build/gen.py          # 生成数据并打包
     3. node audit/check.js
     4. node audit/e2e.js
     5. 提交
+
+只改 src/styles.css / src/app.js / src/template.html 时，运行 python build/bundle.py 即可；这三处不要直接改输出文件 小食光-V2.html。
 
 核心架构
 --------
@@ -73,7 +86,7 @@
 已知限制
 --------
 
-* 单文件体积已超过 audit/check.js 的 JS 行数预算（当前约 2097 行），继续加功能前应考虑拆分。
+* 发布产物仍是单文件，打包后 JS 约 2096 行；源码已拆到 src/app.js，后续可继续按模块拆分。
 * 角色切换是本机演示，不是实时同步；厨房页内也有提示。
 * 字体 CSS 已改为异步加载；离线时使用系统字体兜底。
 * audit/tmp-hero.html 是未引用的临时文件，保留仅作视觉参考。
