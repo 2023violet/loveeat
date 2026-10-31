@@ -64,13 +64,33 @@ const onlySym = [...symbols].filter(k => k !== 'unknown' && !artKeys.has(k));
 log(onlyKey.length === 0 && onlySym.length === 0, '插画一一对应',
   (onlyKey.length || onlySym.length) ? ('缺 symbol: ' + onlyKey.join(',') + ' | 缺 key: ' + onlySym.join(',')) : artKeys.size + ' 张');
 
-/* ---- 6. 体积预算（warn，不 fail）。阈值含内联菜品数据：JSON 块是一行，行数不反映体积 ---- */
+/* ---- 6. 源码与打包产物一致（只检查仓库默认产物） ---- */
+const DEFAULT_P = path.join(__dirname, '..', '小食光-V2.html');
+if (path.resolve(P) === path.resolve(DEFAULT_P)) {
+  try {
+    const src = path.join(__dirname, '..', 'src');
+    const srcApp = fs.readFileSync(path.join(src, 'app.js'), 'utf8').trim();
+    const srcCss = fs.readFileSync(path.join(src, 'styles.css'), 'utf8').trim();
+    const srcData = fs.readFileSync(path.join(src, 'seed-dishes.json'), 'utf8');
+    const cssBlock = (html.match(/<style[^>]*>([\s\S]*?)<\/style>/) || [, ''])[1].trim();
+    const dataBlock = (html.match(/<script type="application\/json"[^>]*>([\s\S]*?)<\/script>/) || [, ''])[1];
+    let sameData = false;
+    try { sameData = JSON.stringify(JSON.parse(srcData)) === JSON.stringify(JSON.parse(dataBlock)); } catch (e) {}
+    log(js.trim() === srcApp, 'JS 与 src/app.js 一致', js.trim() === srcApp ? '' : '先运行 python build/bundle.py');
+    log(cssBlock === srcCss, 'CSS 与 src/styles.css 一致', cssBlock === srcCss ? '' : '先运行 python build/bundle.py');
+    log(sameData, '数据与 src/seed-dishes.json 一致', sameData ? '' : '先运行 python build/gen.py');
+  } catch (e) {
+    log(false, '源码与打包产物一致', e.message);
+  }
+}
+
+/* ---- 7. 体积预算（warn，不 fail）。阈值含内联菜品数据：JSON 块是一行，行数不反映体积 ---- */
 const htmlLines = html.split('\n').length, jsLines = js.split('\n').length;
 const dataKB = Math.round(((html.match(/<script type="application\/json"[^>]*>([\s\S]*?)<\/script>/) || [, ''])[1].length) / 1024);
-if (htmlLines > 3200 || jsLines > 1900) warns.push('体积超预算：HTML ' + htmlLines + ' / JS ' + jsLines + '，该考虑拆分了');
+if (htmlLines > 3200 || jsLines > 1900) warns.push('体积超预算：HTML ' + htmlLines + ' / JS ' + jsLines + '（发布产物；源码已拆到 src/，可继续模块化 app.js）');
 console.log('  INFO 行数 HTML ' + htmlLines + ' / JS ' + jsLines + ' · 内联菜品数据 ' + dataKB + 'KB');
 
-/* ---- 7. 外部请求清单（w3.org 是 SVG 命名空间，不发请求，排除） ---- */
+/* ---- 8. 外部请求清单（w3.org 是 SVG 命名空间，不发请求，排除） ---- */
 const urls = [...new Set([...html.matchAll(/https?:\/\/[^\s"')]+/g)].map(m => m[0]))]
   .filter(u => !/w3\.org/.test(u));
 console.log('  INFO 外部请求 ' + urls.length + ' 个：' + (urls.length ? urls.join(' | ') : '无'));
