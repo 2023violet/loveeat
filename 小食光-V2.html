@@ -272,6 +272,8 @@ ul{list-style:none}
 .chip--filter{flex:none;margin-right:18px;background:var(--surface-2);border-color:var(--line);color:var(--ink-soft);gap:3px}
 .chip--filter.has{background:var(--butter-100);border-color:var(--butter-500);color:var(--butter-700)}
 .chip--filter b{font-family:var(--font-num);font-weight:800;margin-left:2px}
+/* 手气不错：固定入口，在筛选旁边，不随分类横滚 */
+.chip--surprise{flex:none;background:var(--butter-100);border-color:var(--butter-500);color:var(--butter-700);gap:4px}
 .home-body{padding:10px 18px 128px}
 
 /* 开饭了横幅 */
@@ -516,6 +518,15 @@ ul{list-style:none}
 .info-card h5 .icon{color:var(--rose-500)}
 .info-card p{font-size:12px;color:var(--ink-soft);margin-top:7px;line-height:1.6}
 .info-card p b{color:var(--ink)}
+/* 撒娇记录：把待批/已批/拒绝理由留在宝贝这边，不用切身份才知道结果 */
+.ag-log{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.ag-row{display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--ink-soft);line-height:1.5}
+.ag-row .ag-note{flex:1;min-width:0;font-weight:700;color:var(--ink)}
+.ag-row .ag-status{flex:none;max-width:46%;text-align:right;font-weight:800}
+.ag-row .ag-status.waiting{color:var(--butter-700)}
+.ag-row .ag-status.approved{color:var(--green-700)}
+.ag-row .ag-status.rejected{color:var(--rose-700)}
+.ag-row .ag-status.expired{color:var(--muted-ink)}
 .cycle-bar{height:9px;border-radius:99px;background:var(--rose-50);margin-top:11px;overflow:hidden}
 .cycle-bar i{display:block;height:100%;border-radius:99px;background:var(--butter-500)}
 .ledger-sec{margin-top:22px}
@@ -562,6 +573,7 @@ ul{list-style:none}
 
 /* 工作台 */
 .kt-body{padding:58px 18px 120px}
+.kt-search{margin:0 0 12px}
 .kt-note{background:var(--surface-2);border-radius:var(--r-md);padding:11px 13px;font-size:11.5px;color:var(--muted-ink);line-height:1.6;margin-bottom:14px;display:flex;gap:7px}
 .kt-note .icon{width:15px;height:15px;flex:none;margin-top:1px}
 .mood-card{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-1);padding:14px 16px;margin-bottom:14px}
@@ -964,6 +976,9 @@ ul{list-style:none}
       </header>
       <div class="cat-wrap">
         <nav class="cat-row" id="cat-row" aria-label="菜品分类"></nav>
+        <button class="chip chip--surprise" data-action="surprise" aria-label="在当前条件里随机推荐一道菜">
+          <svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px" aria-hidden="true"><use href="#i-spark"></use></svg>手气
+        </button>
         <button class="chip chip--filter" id="filter-btn" data-action="open-filter" aria-label="按菜系、主料、做法筛选">筛选</button>
       </div>
       <div class="home-body" id="home-list"></div>
@@ -1436,8 +1451,8 @@ function seedState() {
     inbox: [{ id: 'b1', kind: 'aegyo', d: todayKey(), ts: Date.now(), status: 'waiting', note: '想要纪念日那顿' }],
     ordersTab: 'all', cat: 'all', q: '', loading: false, screen: 'home',
     ledgerSync: 'ok', detailId: null, lastOrderId: null, reviewOrderId: null, scrollPos: {},
-    reviewDraft: { hearts: 5, text: '' }, pickedArt: null, formForWish: null,
-    renderLimit: RENDER_STEP, kitchenLimit: 12, filters: {}, filterDraft: null, filterMore: false, removedIds: [],
+    reviewDraft: { hearts: 5, text: '' }, pickedArt: null, formForWish: null, editDishId: null,
+    renderLimit: RENDER_STEP, kitchenLimit: 12, kitchenQ: '', filters: {}, filterDraft: null, filterMore: false, removedIds: [],
   };
 }
 
@@ -1574,7 +1589,7 @@ const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => Array.prototype.slice.call((el || document).querySelectorAll(s));
 const FOCUSABLE = 'button,[href],input,textarea,select,[tabindex]:not([tabindex="-1"])';
 /* 会被 commit 重绘重建的输入框：重绘后要把焦点和光标位置还回去 */
-const FOCUS_KEEP = /^(note-input|rv-text|ag-note|wish-name|dn-name|dn-price|dn-time|dn-note|dn-ing|dn-steps)$/;
+const FOCUS_KEEP = /^(note-input|rv-text|ag-note|wish-name|kitchen-search|dn-name|dn-price|dn-time|dn-note|dn-ing|dn-steps)$/;
 
 /* 全量序列化约 150KB，点一下加号就同步写一次 localStorage 会有可感知卡顿，
    改成 150ms 防抖；页面隐藏/关闭时补写一次，避免丢最后一步 */
@@ -1671,7 +1686,7 @@ const BABY_ONLY = ['add', 'inc', 'del', 'pay', 'pay-blocked', 'again', 'cuishou'
   'aegyo', 'aegyo-send', 'rate-open', 'rate-hearts', 'rate-quick', 'rate-submit',
   'prefchip', 'when', 'wish', 'wish-submit', 'open-wish'];
 const CHEF_ONLY = ['chef-accept', 'chef-decline', 'chef-cook', 'chef-serve', 'aegyo-approve', 'aegyo-reject',
-  'aegyo-reject-do', 'wish-learn', 'wish-remove', 'dish-new', 'dish-new-submit', 'dish-del', 'dish-del-do',
+  'aegyo-reject-do', 'wish-learn', 'wish-remove', 'dish-new', 'dish-edit', 'dish-submit', 'dish-del', 'dish-del-do',
   'art-pick', 'nav-kitchen'];
 const can = action => (state.me === 'chef' ? BABY_ONLY : CHEF_ONLY).indexOf(action) < 0;
 function tagsOf(d) { return (d.cats || []).concat(['spicy' + d.spicy, 'difficulty' + d.difficulty]); }
@@ -2111,7 +2126,8 @@ function renderDetail() {
       '<p class="review-text">这道菜还欠我一次评价～</p><p class="review-date">点过之后来打分</p></div>') + '</div>' +
     '</div>';
   $('#detail-actions').innerHTML = chef
-    ? '<button class="btn btn-ghost" data-action="dish-del" data-id="' + esc(d.id) + '">' + IC('trash', 'width:19px;height:19px') + ' 下架这道菜</button>' +
+    ? '<button class="btn btn-ghost" style="min-width:56px" data-action="dish-edit" data-id="' + esc(d.id) + '" aria-label="编辑' + esc(d.name) + '">' + IC('note') + '</button>' +
+      '<button class="btn btn-ghost" data-action="dish-del" data-id="' + esc(d.id) + '">' + IC('trash', 'width:19px;height:19px') + ' 下架这道菜</button>' +
       '<button class="btn btn-primary" style="flex:1" data-action="nav" data-target="kitchen" data-dir="back">回工作台</button>'
     : '<button class="btn btn-ghost" style="min-width:56px" data-action="fav" data-id="' + esc(d.id) + '" aria-label="' +
       (fav ? '取消收藏' : '收藏') + esc(d.name) + '" aria-pressed="' + fav + '">' + IC(fav ? 'heart-fill' : 'heart') + '</button>' +
@@ -2304,6 +2320,8 @@ function renderWallet() {
     (wait ? ' · 有 ' + wait + ' 条正等大厨点头' : '') +
     '<br>今天最多能批 <b class="num">' + aegyoCap() + '</b>，已到账 ' + aegyoApprovedToday() +
     '。撒娇只补今天的饭钱，攒不下来。</p></div>' +
+    '<div class="info-card"><h5>' + IC('inbox') + ' 今天的撒娇记录</h5>' +
+    '<div class="ag-log">' + aegyoLogHTML() + '</div></div>' +
     '<div class="ledger-sec" id="ledger-sec"><div class="ledger-head"><h4>' + IC('note') + ' 账本明细</h4>' +
     '<button class="icon-btn refresh' + (state.ledgerSync === 'retrying' ? ' busy' : '') + '" id="ledger-refresh" data-action="refresh" aria-label="刷新账本">' +
     IC('refresh', 'width:20px;height:20px') + '</button></div>' +
@@ -2327,6 +2345,18 @@ function ledgerHTML() {
     groups[m].map(e => '<div class="lg-row"><span class="lg-icon ' + e.k + '">' + IC(ICONK[e.k] || 'coin', 'width:20px;height:20px') + '</span>' +
       '<div class="lg-info"><div class="t">' + esc(e.t) + '</div><div class="d">' + relDate(e.d) + (e.ref ? ' · ' + esc(e.ref) : '') + '</div></div>' +
       '<span class="lg-amt ' + (e.a > 0 ? 'plus' : 'minus') + '">' + (e.a > 0 ? '+' : '') + f1(e.a) + '</span></div>').join('')).join('');
+}
+function aegyoLogHTML() {
+  const list = state.inbox.filter(b => b.kind === 'aegyo' && b.d === todayKey());
+  if (!list.length) return '<p style="margin-top:0">今天还没撒过娇，点上面的「撒娇充值」试试。</p>';
+  return list.map(b => {
+    const st = ['waiting', 'approved', 'rejected', 'expired'].indexOf(b.status) >= 0 ? b.status : 'expired';
+    const label = st === 'approved' ? '+' + f1(b.amount || 0) + ' · 已到账'
+      : st === 'rejected' ? '没批' + (b.reason ? ' · ' + b.reason : '')
+      : st === 'expired' ? '过期了' : '等大厨点头';
+    return '<div class="ag-row"><span class="ag-note">' + esc(b.note || '想要一点零花钱') + '</span>' +
+      '<span class="ag-status ' + st + '">' + esc(label) + '</span></div>';
+  }).join('');
 }
 
 /* ---------------- 大厨工作台 ---------------- */
@@ -2395,6 +2425,12 @@ function renderKitchen() {
   const doing = state.orders.filter(o => ['accepted', 'cooking'].includes(o.chefState));
   const nagged = state.orders.filter(o => o.nagCount > 0 && ['pending', 'accepted', 'cooking'].includes(o.chefState));
   const wishes = state.wished.filter(w => w.status !== 'done');
+  /* 菜单管理：362 道菜必须能搜；自己新加的排前面，被点过的其次 */
+  const kq = (state.kitchenQ || '').trim();
+  const menuAll = state.dishes.slice().sort((a, b) =>
+    (b.byChef ? 1 : 0) - (a.byChef ? 1 : 0) || (b.reviews.length - a.reviews.length));
+  const menuList = kq ? menuAll.filter(d => hayOf(d).indexOf(kq.toLowerCase()) >= 0) : menuAll;
+  const menuLimit = state.kitchenLimit || 12;
   $('#kitchen-scroll').innerHTML =
     '<h2 class="page-title scr-h" tabindex="-1">大厨工作台</h2><div class="kt-body">' +
     '<div class="kt-note">' + IC('info') + '<span>本机演示：切换身份等于把手机交给对方，<b>不是实时同步</b>。' +
@@ -2425,24 +2461,24 @@ function renderKitchen() {
       '<div class="wr-act"><button class="mini-btn" data-action="wish-learn" data-id="' + w.id + '">已学会</button>' +
       '<button class="mini-btn ghost" data-action="wish-remove" data-id="' + w.id + '" aria-label="删掉' + esc(w.name) + '">' + IC('trash', 'width:14px;height:14px') + '</button></div></div>').join('')
       : '<p style="font-size:12.5px;color:var(--muted-ink);line-height:1.7">清单空的。宝贝搜不到的菜名会自动写在这里。</p>') +
-    '<h3 class="sec-h">' + IC('bowl') + ' 菜单管理<span class="count">' + state.dishes.length + ' 道</span></h3>' +
+    '<h3 class="sec-h">' + IC('bowl') + ' 菜单管理<span class="count">' + state.dishes.length + ' 道' +
+      (kq ? ' · 匹配 ' + menuList.length : '') + '</span></h3>' +
+    '<div class="search-bar kt-search">' + IC('search', 'width:18px;height:18px') +
+      '<input id="kitchen-search" type="search" autocomplete="off" value="' + esc(state.kitchenQ) +
+      '" placeholder="搜菜名、食材或菜系" aria-label="搜索菜单">' + '</div>' +
     '<button class="btn btn-primary" style="width:100%" data-action="dish-new">' + IC('plus', 'width:20px;height:20px') + ' 新增一道菜</button>' +
     '<div style="height:12px"></div>' +
-    (() => {
-      /* 308 道全量渲染会卡，大厨也翻不到要下架的那道：
-         默认只列 12 条，自己新加的排前面，被点过的其次 */
-      const ordered = state.dishes.slice().sort((a, b) =>
-        (b.byChef ? 1 : 0) - (a.byChef ? 1 : 0) || (b.reviews.length - a.reviews.length));
-      const limit = state.kitchenLimit || 12;
-      const shown = ordered.slice(0, limit);
-      return shown.map(d => '<div class="wish-row"><span class="od-d" style="width:40px;height:40px;border-radius:10px">' +
-        dishThumb(d) + '</span><div style="flex:1;min-width:0"><div class="wr-n">' + esc(d.name) + '</div>' +
-        '<div class="wr-s">' + f1(d.price) + ' 零花钱 · ' + d.time + ' 分钟 · 点过 ' + rebuyOf(d.id) + ' 次</div></div>' +
-        '<div class="wr-act"><button class="mini-btn ghost" data-action="dish-del" data-id="' + esc(d.id) + '" aria-label="下架' + esc(d.name) + '">' +
-        IC('trash', 'width:14px;height:14px') + '</button></div></div>').join('') +
-        (ordered.length > limit ? '<button class="btn btn-ghost load-more" data-action="kitchen-more">还有 ' +
-          (ordered.length - limit) + ' 道，展开看</button>' : '');
-    })() +
+    (menuList.length ? menuList.slice(0, menuLimit).map(d => '<div class="wish-row"><span class="od-d" style="width:40px;height:40px;border-radius:10px">' +
+      dishThumb(d) + '</span><div style="flex:1;min-width:0"><div class="wr-n">' + esc(d.name) + '</div>' +
+      '<div class="wr-s">' + f1(d.price) + ' 零花钱 · ' + d.time + ' 分钟 · 点过 ' + rebuyOf(d.id) + ' 次</div></div>' +
+      '<div class="wr-act"><button class="mini-btn" data-action="dish-edit" data-id="' + esc(d.id) + '" aria-label="编辑' + esc(d.name) + '">' +
+      IC('note', 'width:14px;height:14px') + '</button>' +
+      '<button class="mini-btn ghost" data-action="dish-del" data-id="' + esc(d.id) + '" aria-label="下架' + esc(d.name) + '">' +
+      IC('trash', 'width:14px;height:14px') + '</button></div></div>').join('') +
+      (menuList.length > menuLimit ? '<button class="btn btn-ghost load-more" data-action="kitchen-more">还有 ' +
+        (menuList.length - menuLimit) + ' 道，展开看</button>' : '')
+      : '<p style="font-size:12.5px;color:var(--muted-ink);line-height:1.7">' +
+        (kq ? '没搜到「' + esc(kq) + '」' : '菜单还是空的，先加一道菜吧') + '</p>') +
     '</div>';
   armImgs($('#kitchen-scroll'));
 }
@@ -2517,6 +2553,7 @@ function navTo(target, opts) {
      否则这一次渲染用的还是上次的 300 条 */
   if (target === 'kitchen') {
     state.kitchenLimit = 12;
+    state.kitchenQ = '';
     if (!state.meta.seenKitchen) { state.meta.seenKitchen = true; saveState(); }
   }
   const sc0 = $('#' + state.screen + '-scroll'); if (sc0) state.scrollPos[state.screen] = sc0.scrollTop;
@@ -2602,6 +2639,20 @@ const ACTIONS = {
   },
   'load-more': () => { state.renderLimit = (state.renderLimit || RENDER_STEP) + RENDER_STEP; commit(); toast('又加了 ' + RENDER_STEP + ' 道，往下滑看看'); },
   'kitchen-more': () => { state.kitchenLimit = (state.kitchenLimit || 12) + 48; commit(); },
+  /* 手气不错：只在当前分类/搜索/筛选/余额范围内选，先避开已在购物车里的菜 */
+  surprise: () => {
+    const list = filteredDishes().filter(d => state.me === 'chef' || d.price <= state.wallet.balance);
+    if (!list.length) {
+      toast(state.me === 'chef' ? '当前条件里没有能推荐的菜' : '零花钱不够，先撒个娇再来');
+      return;
+    }
+    const fresh = list.filter(d => !state.cart[d.id]);
+    const pool = fresh.length ? fresh : list;
+    const d = pool[Math.floor(Math.random() * pool.length)];
+    state.detailId = d.id;
+    navTo('detail', { dir: 'fwd' });
+    toast('今天就它了：' + d.name);
+  },
   'open-filter': () => {
     state.filterMore = false;
     state.filterDraft = Object.assign({}, state.filters || {});
@@ -2809,27 +2860,38 @@ const ACTIONS = {
   'wish-learn': b => { openDishForm(b.dataset.id); },
   'wish-remove': b => { const i = state.wished.findIndex(w => w.id === b.dataset.id); if (i >= 0) state.wished.splice(i, 1); commit(); toast('从学做清单里划掉了'); },
   'dish-new': () => openDishForm(null),
-  'dish-new-submit': () => {
+  'dish-edit': b => openDishForm(null, b.dataset.id),
+  'dish-submit': () => {
     const g = id => { const el = $('#' + id); return el ? el.value.trim() : ''; };
     const name = g('dn-name'), price = parseFloat(g('dn-price')), time = parseInt(g('dn-time'), 10);
     if (!name) { toast('菜名总要写一个'); return; }
     if (!(price >= 0) || !(time >= 0)) { toast('价格和分钟数得是数字'); return; }
+    const editId = state.editDishId, wishId = state.formForWish;
     const art = state.pickedArt || ART_KEYS[0];
-    /* ID 不掺菜名：菜名可以带引号/尖括号，放进 data-* 属性会破坏 DOM */
-    const id = 'c' + shortDate(todayKey()) + '-' + state.meta.seq;
-    const wishId = state.formForWish;
+    const fields = {
+      name: name, cats: [g('dn-cat') || 'yingle'],
+      cuisine: g('dn-cuisine') || '融合', main: g('dn-main') || '蔬菜', method: g('dn-method') || '炒',
+      price: +price.toFixed(1), time: time, spicy: +g('dn-spicy') || 0, art: art,
+      desc: g('dn-desc') || (editId ? '' : '刚进菜单，等着被翻牌'),
+      note: g('dn-note') || (editId ? '' : '这道是今天新加的，做法还在磨合，你先把肚子准备好。'),
+      ingredients: g('dn-ing').split(/[、,，]/).map(s => s.trim()).filter(Boolean),
+      steps: g('dn-steps').split(/[、,，\n]/).map(s => s.trim()).filter(Boolean),
+      servings: g('dn-servings') || '两人份', difficulty: g('dn-diff') || '中等',
+    };
     commit(() => {
-      state.dishes.push({ id: id, name: name, cats: [g('dn-cat') || 'yingle'], price: +price.toFixed(1), time: time,
-        spicy: +g('dn-spicy') || 0, art: art, desc: g('dn-desc') || '刚进菜单，等着被翻牌',
-        note: g('dn-note') || '这道是今天新加的，做法还在磨合，你先把肚子准备好。',
-        ingredients: g('dn-ing').split(/[、,，]/).map(s => s.trim()).filter(Boolean),
-        steps: g('dn-steps').split(/[、,，\n]/).map(s => s.trim()).filter(Boolean),
-        servings: '两人份', difficulty: g('dn-diff') || '中等', reviews: [], byChef: true, sign: false });
+      if (editId) {
+        const d = state.dishes.find(x => x.id === editId);
+        if (d) Object.assign(d, fields);          /* 保留 id / reviews / byChef / sign */
+      } else {
+        /* ID 不掺菜名：菜名可以带引号/尖括号，放进 data-* 属性会破坏 DOM */
+        const id = 'c' + shortDate(todayKey()) + '-' + pad2(++state.meta.seq);
+        state.dishes.push(Object.assign({ id: id, reviews: [], byChef: true, sign: false }, fields));
+      }
       if (wishId) { const w = state.wished.find(x => x.id === wishId); if (w) w.status = 'done'; }
-      state.formForWish = null; state.pickedArt = null;
+      state.formForWish = null; state.editDishId = null; state.pickedArt = null;
     });
     closeModal();
-    toast(copyWith('wish.done', name));
+    toast(editId ? '「' + name + '」已更新' : (wishId ? copyWith('wish.done', name) : '「' + name + '」已进菜单'));
   },
   'dish-del': b => {
     const d = dish(b.dataset.id);
@@ -2899,32 +2961,50 @@ function addWish(name, from) {
   state.wished.unshift({ id: 'w' + (++state.meta.seq), name: name, d: todayKey(), status: 'new', from: from });
   toast(copyWith('wish.add', name));
 }
-function openDishForm(wishId) {
+function openDishForm(wishId, dishId) {
   const w = wishId ? state.wished.find(x => x.id === wishId) : null;
+  const d = dishId ? dish(dishId) : null;
+  if (dishId && d.unknown) { toast('这道菜已经不在了'); return; }
   state.formForWish = wishId || null;
-  state.pickedArt = state.pickedArt || ART_KEYS[Math.floor(rng(LS_KEY, 'artpick', state.meta.today)() * ART_KEYS.length)];
+  state.editDishId = dishId || null;
+  state.pickedArt = d ? d.art : (state.pickedArt || ART_KEYS[Math.floor(rng(LS_KEY, 'artpick', state.meta.today)() * ART_KEYS.length)]);
   const field = (id, label, val, ph, type) =>
     '<label for="' + id + '">' + label + '</label><input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '">';
+  const select = (id, label, options, selected) =>
+    '<div><label for="' + id + '">' + label + '</label><select id="' + id + '">' +
+    options.map(o => '<option value="' + esc(o.id) + '"' + (String(o.id) === String(selected) ? ' selected' : '') + '>' + esc(o.label) + '</option>').join('') +
+    '</select></div>';
+  const catOpts = CATS.filter(c => c.id !== 'all').map(c => ({ id: c.id, label: c.label }));
+  const textOpts = arr => arr.map(x => ({ id: x, label: x }));
+  const diffOpts = ['简单', '中等', '高'].map(x => ({ id: x, label: x }));
+  const curCat = (d && d.cats && d.cats[0]) || 'yingle';
+  const curCuisine = d ? d.cuisine : '融合';
+  const curMain = d ? d.main : '蔬菜';
+  const curMethod = d ? d.method : '炒';
+  const curSpicy = d ? d.spicy : 0;
+  const curDiff = d ? d.difficulty : '中等';
+  const title = d ? '编辑「' + esc(d.name) + '」' : (w ? '学会「' + esc(w.name) + '」了' : '新增一道菜');
   openModal('<button class="x-btn" data-action="modal-close" aria-label="关闭">' + IC('close') + '</button>' +
-    '<h3 class="ag-h3">' + (w ? '学会「' + esc(w.name) + '」了' : '新增一道菜') + '</h3>' +
-    '<p class="ag-sub">写完就进菜单，宝贝那边立刻能点到</p>' +
+    '<h3 class="ag-h3">' + title + '</h3>' +
+    '<p class="ag-sub">' + (d ? '保存后保留原来的 ID、收藏和食评' : '写完就进菜单，宝贝那边立刻能点到') + '</p>' +
     '<div class="dish-new-form">' +
-    field('dn-name', '菜名', w ? w.name : '', '比如：酸汤肥牛') +
-    '<div class="two"><div>' + field('dn-price', '零花钱/份', '', '12', 'number') + '</div><div>' + field('dn-time', '要做几分钟', '', '40', 'number') + '</div></div>' +
-    '<div class="two"><div><label for="dn-cat">分类</label><select id="dn-cat">' +
-    CATS.filter(c => c.id !== 'all').map(c => '<option value="' + c.id + '">' + c.label + '</option>').join('') + '</select></div>' +
-    '<div><label for="dn-spicy">辣度</label><select id="dn-spicy">' +
-    [0, 1, 2].map(s => '<option value="' + s + '">' + SPICY_LABEL[s] + '</option>').join('') + '</select></div></div>' +
-    field('dn-diff', '难度', '中等', '简单 / 中等 / 高') +
-    field('dn-desc', '列表里的一句话', '', '酸甜开胃，下饭第一名') +
+    field('dn-name', '菜名', d ? d.name : (w ? w.name : ''), '比如：酸汤肥牛') +
+    '<div class="two"><div>' + field('dn-price', '零花钱/份', d ? d.price : '', '12', 'number') + '</div>' +
+      '<div>' + field('dn-time', '要做几分钟', d ? d.time : '', '40', 'number') + '</div></div>' +
+    '<div class="two">' + select('dn-cat', '分类', catOpts, curCat) + select('dn-spicy', '辣度', SPICY_OPTS, curSpicy) + '</div>' +
+    '<div class="two">' + select('dn-cuisine', '菜系', textOpts(CUISINES), curCuisine) + select('dn-main', '主料', textOpts(MAINS), curMain) + '</div>' +
+    '<div class="two">' + select('dn-method', '做法', textOpts(METHODS), curMethod) + select('dn-diff', '难度', diffOpts, curDiff) + '</div>' +
+    field('dn-servings', '份量', d ? d.servings : '两人份', '两人份') +
+    field('dn-desc', '列表里的一句话', d ? d.desc : '', '酸甜开胃，下饭第一名') +
     '<label for="dn-note">大厨的话（显示在详情页）</label>' +
-    '<textarea id="dn-note" class="note-input" style="height:56px" placeholder="今晚我请客，你负责吃"></textarea>' +
-    '<label for="dn-ing">食材（用、隔开）</label><input id="dn-ing" placeholder="肥牛卷、金针菇、酸汤料">' +
-    '<label for="dn-steps">步骤（用、或换行隔开）</label><textarea id="dn-steps" class="note-input" style="height:64px" placeholder="烧水、下料、肥牛烫十秒"></textarea>' +
+    '<textarea id="dn-note" class="note-input" style="height:56px" placeholder="今晚我请客，你负责吃">' + esc((d && d.note) || '') + '</textarea>' +
+    '<label for="dn-ing">食材（用、隔开）</label><input id="dn-ing" value="' + esc(d ? (d.ingredients || []).join('、') : '') + '" placeholder="肥牛卷、金针菇、酸汤料">' +
+    '<label for="dn-steps">步骤（用、或换行隔开）</label><textarea id="dn-steps" class="note-input" style="height:64px" placeholder="烧水、下料、肥牛烫十秒">' + esc(d ? (d.steps || []).join('\n') : '') + '</textarea>' +
     '<label>选一张插画</label><div class="art-pick">' + ART_KEYS.map(k =>
       '<button data-action="art-pick" data-id="' + k + '" aria-pressed="' + (state.pickedArt === k) + '" aria-label="插画 ' + k + '">' +
       artSvg(k, k) + '</button>').join('') + '</div>' +
-    '</div><button class="btn btn-primary ag-btn" data-action="dish-new-submit">放进菜单</button>', '新增菜品', '#dn-name');
+    '</div><button class="btn btn-primary ag-btn" data-action="dish-submit">' + (d ? '保存修改' : '放进菜单') + '</button>',
+    d ? '编辑菜品' : '新增菜品', '#dn-name');
 }
 
 /* ---------------- 事件绑定 ---------------- */
@@ -2949,6 +3029,7 @@ document.addEventListener('keydown', e => {
 $('#modal-root').addEventListener('click', e => { if (e.target.id === 'modal-root') closeModal(); });
 
 let searchTimer = null;
+let kitchenTimer = null;
 function bindSearch() {
   const input = $('#search-input');
   input.addEventListener('input', () => {
@@ -2956,10 +3037,21 @@ function bindSearch() {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => { state.q = input.value; state.renderLimit = RENDER_STEP; renderHome(); }, 160);
   });
+  /* 厨房菜单搜索是渲染出来的输入框，走委托；重绘后由 FOCUS_KEEP 还焦点 */
+  document.addEventListener('input', e => {
+    if (!e.target || e.target.id !== 'kitchen-search') return;
+    const value = e.target.value;
+    clearTimeout(kitchenTimer);
+    kitchenTimer = setTimeout(() => {
+      state.kitchenQ = value;
+      state.kitchenLimit = 12;
+      commit();
+    }, 160);
+  });
   /* 真机键盘别挡住输入：这些字段是渲染出来的，绑定时还不存在，所以走委托 */
   document.addEventListener('focusin', e => {
     const t = e.target;
-    if (t && (t.id === 'note-input' || t.id === 'rv-text' || t.id === 'wish-name' || t.id === 'ag-note')) {
+    if (t && (t.id === 'note-input' || t.id === 'rv-text' || t.id === 'wish-name' || t.id === 'ag-note' || t.id === 'kitchen-search')) {
       setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'auto' }), 260);
     }
   });

@@ -1,6 +1,6 @@
 /* 小食光端到端检查：node audit/e2e.js [文件路径]
    依赖本机 Edge/Chrome（可用 XSG_BROWSER 指定）。使用临时浏览器配置，不碰真实 localStorage。
-   覆盖：内置自检、搜索、点菜/支付、大厨状态机、评价回写、撒娇批复、新增/下架菜、持久化、旧 ID 迁移。 */
+   覆盖：内置自检、搜索、手气推荐、点菜/支付、大厨状态机、评价回写、撒娇批复与记录、新增/编辑/搜索/下架菜、持久化、旧 ID 迁移。 */
 const { spawn } = require('child_process');
 const { pathToFileURL } = require('url');
 const path = require('path');
@@ -109,6 +109,7 @@ function cleanup() {
       el.click();
       return el;
     };
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
     const before = {};
 
     try {
@@ -118,6 +119,10 @@ function cleanup() {
       const count0 = state.dishes.length;
       ok('菜品库非空', count0 >= 20, count0);
       ok('菜品 ID 唯一', new Set(state.dishes.map(d => d.id)).size === count0, count0);
+
+      click('[data-action="surprise"]');
+      ok('手气不错', state.screen === 'detail' && !!dish(state.detailId) && !dish(state.detailId).unknown, state.detailId);
+      click('[data-action="nav"][data-target="home"]');
 
       /* 搜索：严格同义词不能落回模糊匹配 */
       state.q = '不辣'; state.cat = 'all'; state.filters = {}; state.renderLimit = RENDER_STEP; renderHome();
@@ -179,26 +184,78 @@ function cleanup() {
         state.wallet.balance + ' (+' + amount + ')');
       ok('批复后账本一致', balanceCheck(), state.wallet.balance);
 
-      /* 新增菜：ID 不掺菜名，菜名必须转义 */
+      /* 撒娇结果回到宝贝侧可见 */
+      click('#avatar-btn');
+      click('#tab-bar [data-target="wallet"]');
+      const agStatus = document.querySelector('.ag-status.approved');
+      ok('撒娇结果可见', !!agStatus && agStatus.textContent.indexOf('已到账') >= 0, agStatus && agStatus.textContent);
+      click('#avatar-btn');
+      ok('切回大厨继续管理', state.me === 'chef' && state.screen === 'kitchen', state.me + '/' + state.screen);
+
+      /* 新增菜：完整字段 + ID 安全 + 筛选用得上 */
       click('[data-action="dish-new"]');
-      document.querySelector('#dn-name').value = '坏名字\\"><b>pwn</b>';
+      const evilName = '坏名字\\"><b>pwn</b>';
+      document.querySelector('#dn-name').value = evilName;
       document.querySelector('#dn-price').value = '5';
       document.querySelector('#dn-time').value = '20';
       document.querySelector('#dn-desc').value = '自动化验证';
-      click('[data-action="dish-new-submit"]');
-      const added = state.dishes.find(d => d.name === '坏名字\\"><b>pwn</b>');
-      ok('大厨新增菜品', !!added && added.byChef, added && added.id);
-      ok('自建菜 ID 安全', !!added && /^c\\d{4}-\\d+$/.test(added.id), added && added.id);
+      document.querySelector('#dn-cuisine').value = '川';
+      document.querySelector('#dn-main').value = '牛';
+      document.querySelector('#dn-method').value = '炒';
+      document.querySelector('#dn-servings').value = '一人份';
+      document.querySelector('#dn-diff').value = '中等';
+      click('[data-action="dish-submit"]');
+      const added = state.dishes.find(d => d.name === evilName);
+      if (!added) throw new Error('新增菜失败');
+      ok('大厨新增菜品', added.byChef, added.id);
+      ok('自建菜字段完整', added.cuisine === '川' && added.main === '牛' && added.method === '炒' && added.servings === '一人份',
+        [added.cuisine, added.main, added.method, added.servings].join('/'));
+      ok('自建菜 ID 安全', /^c\\d{4}-\\d+$/.test(added.id), added.id);
+      state.q = ''; state.cat = 'all';
+      const hitFilter = f => { state.filters = f; const yes = filteredDishes().some(d => d.id === added.id); state.filters = {}; return yes; };
+      ok('新增菜进入菜系筛选', hitFilter({ cuisine: '川' }), '川');
+      ok('新增菜进入主料筛选', hitFilter({ main: '牛' }), '牛');
+      ok('新增菜进入做法筛选', hitFilter({ method: '炒' }), '炒');
 
+      /* 收藏 + 菜名转义 */
       click('#avatar-btn');
-      state.q = '坏名字'; state.renderLimit = RENDER_STEP; renderHome();
+      state.q = '坏名字'; state.filters = {}; state.renderLimit = RENDER_STEP; renderHome();
       const listHTML = document.querySelector('#home-list').innerHTML;
       ok('菜名已转义', listHTML.indexOf('<b>pwn</b>') < 0, listHTML.indexOf('&lt;b&gt;pwn&lt;/b&gt;') >= 0 ? '编码正常' : '未找到编码结果');
+      click('[data-card="' + added.id + '"] [data-action="fav"]');
+      ok('收藏新增菜', state.favs.includes(added.id), state.favs.length);
 
+      /* 编辑：保留 ID/收藏，字段可改 */
       click('#avatar-btn');
+      const countBeforeEdit = state.dishes.length;
+      click('[data-action="dish-edit"][data-id="' + added.id + '"]');
+      ok('编辑表单预填', document.querySelector('#dn-name').value === evilName
+        && document.querySelector('#dn-price').value === '5' && document.querySelector('#dn-cuisine').value === '川',
+        document.querySelector('#dn-cuisine').value);
+      document.querySelector('#dn-price').value = '6';
+      document.querySelector('#dn-desc').value = '编辑后的描述';
+      document.querySelector('#dn-cuisine').value = '粤';
+      click('[data-action="dish-submit"]');
+      const edited = state.dishes.find(d => d.id === added.id);
+      ok('编辑保留 ID', !!edited && edited.id === added.id && state.dishes.length === countBeforeEdit, edited && edited.id);
+      ok('编辑字段生效', !!edited && edited.price === 6 && edited.desc === '编辑后的描述' && edited.cuisine === '粤',
+        edited && [edited.price, edited.desc, edited.cuisine].join('/'));
+      ok('编辑后收藏仍保留', state.favs.includes(added.id), state.favs.length);
+
+      /* 厨房菜单搜索 */
+      const kinput = document.querySelector('#kitchen-search');
+      kinput.value = '坏名字';
+      kinput.dispatchEvent(new Event('input', { bubbles: true }));
+      await sleep(260);
+      ok('厨房菜单搜索', state.kitchenQ === '坏名字' && document.querySelectorAll('[data-action="dish-edit"]').length === 1,
+        state.kitchenQ + ' / ' + document.querySelectorAll('[data-action="dish-edit"]').length);
+
+      /* 下架 */
+      state.kitchenQ = ''; renderKitchen();
       click('[data-action="dish-del"][data-id="' + added.id + '"]');
       click('[data-action="dish-del-do"][data-id="' + added.id + '"]');
       ok('下架新增菜', !state.dishes.some(d => d.id === added.id) && state.removedIds.includes(added.id), state.removedIds.length);
+      ok('下架清理收藏', !state.favs.includes(added.id), state.favs.length);
 
       /* 持久化与旧 ID 迁移 */
       saveNow();
