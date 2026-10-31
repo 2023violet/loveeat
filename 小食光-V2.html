@@ -2886,7 +2886,7 @@ const ACTIONS = {
     commit(() => {
       if (editId) {
         const d = state.dishes.find(x => x.id === editId);
-        if (d) Object.assign(d, fields);          /* 保留 id / reviews / byChef / sign */
+        if (d) { Object.assign(d, fields); hayCache.delete(d); }   /* 保留 id / reviews / byChef / sign；搜索缓存要失效 */
       } else {
         /* ID 不掺菜名：菜名可以带引号/尖括号，放进 data-* 属性会破坏 DOM */
         const id = 'c' + shortDate(todayKey()) + '-' + pad2(++state.meta.seq);

@@ -241,6 +241,9 @@ function cleanup() {
       ok('编辑字段生效', !!edited && edited.price === 6 && edited.desc === '编辑后的描述' && edited.cuisine === '粤',
         edited && [edited.price, edited.desc, edited.cuisine].join('/'));
       ok('编辑后收藏仍保留', state.favs.includes(added.id), state.favs.length);
+      state.q = '粤'; state.filters = {}; state.cat = 'all'; state.renderLimit = RENDER_STEP;
+      ok('编辑后搜索索引刷新', filteredDishes().some(d => d.id === added.id), filteredDishes().length);
+      state.q = '';
 
       /* 厨房菜单搜索 */
       const kinput = document.querySelector('#kitchen-search');
