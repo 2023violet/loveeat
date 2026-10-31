@@ -35,7 +35,10 @@
     小食光-V2.html          发布产物：由 src/ + build/bundle.py 生成，不要直接手改
     src/template.html       静态页面、SVG、弹窗和屏结构
     src/styles.css          设计 token、组件样式、响应式规则
-    src/app.js              状态机、渲染、动作表、自检逻辑
+    src/js/01-data.js       数据层、文案池、筛选维度
+    src/js/02-state.js      状态、存储、迁移、派生与工具
+    src/js/03-render.js     八屏渲染
+    src/js/04-actions.js    路由、动作表、事件绑定、自检、启动
     src/seed-dishes.json    生成后的菜谱 JSON（含历史 ID 映射）
     build/dishes_1.py ...   扩展菜谱原始数据
     build/gen.py            生成 src/seed-dishes.json，并调用 bundle.py 打包
@@ -86,7 +89,7 @@
 已知限制
 --------
 
-* 发布产物仍是单文件，打包后 JS 约 2096 行；源码已拆到 src/app.js，后续可继续按模块拆分。
+* 发布产物仍是单文件，打包后 JS 约 2099 行；源码已按数据/状态/渲染/动作拆到 src/js/，后续可继续按模块细化。
 * 角色切换是本机演示，不是实时同步；厨房页内也有提示。
 * 字体 CSS 已改为异步加载；离线时使用系统字体兜底。
 * audit/tmp-hero.html 是未引用的临时文件，保留仅作视觉参考。

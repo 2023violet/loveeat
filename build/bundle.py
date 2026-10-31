@@ -13,7 +13,6 @@ ENTRY = os.path.join(ROOT, '小食光-V2.html')
 FILES = {
     '@@XSG_STYLES@@': os.path.join(SRC, 'styles.css'),
     '@@XSG_DATA@@': os.path.join(SRC, 'seed-dishes.json'),
-    '@@XSG_APP_JS@@': os.path.join(SRC, 'app.js'),
 }
 
 
@@ -21,10 +20,18 @@ def read(path):
     return io.open(path, encoding='utf-8', newline='').read()
 
 
+def read_js():
+    js_dir = os.path.join(SRC, 'js')
+    names = sorted(n for n in os.listdir(js_dir) if n.endswith('.js'))
+    if not names:
+        raise ValueError('src/js 下没有 JS 文件')
+    return '\n'.join(read(os.path.join(js_dir, n)) for n in names)
+
+
 def build():
     template = read(os.path.join(SRC, 'template.html'))
     styles = read(FILES['@@XSG_STYLES@@'])
-    app = read(FILES['@@XSG_APP_JS@@'])
+    app = read_js()
     payload = json.loads(read(FILES['@@XSG_DATA@@']))
     data = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
     # 防止数据里的 </script> 提前结束脚本块

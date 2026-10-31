@@ -69,14 +69,16 @@ const DEFAULT_P = path.join(__dirname, '..', '小食光-V2.html');
 if (path.resolve(P) === path.resolve(DEFAULT_P)) {
   try {
     const src = path.join(__dirname, '..', 'src');
-    const srcApp = fs.readFileSync(path.join(src, 'app.js'), 'utf8').trim();
+    const jsDir = path.join(src, 'js');
+    const jsFiles = fs.readdirSync(jsDir).filter(n => n.endsWith('.js')).sort();
+    const srcApp = jsFiles.map(n => fs.readFileSync(path.join(jsDir, n), 'utf8')).join('\n').trim();
     const srcCss = fs.readFileSync(path.join(src, 'styles.css'), 'utf8').trim();
     const srcData = fs.readFileSync(path.join(src, 'seed-dishes.json'), 'utf8');
     const cssBlock = (html.match(/<style[^>]*>([\s\S]*?)<\/style>/) || [, ''])[1].trim();
     const dataBlock = (html.match(/<script type="application\/json"[^>]*>([\s\S]*?)<\/script>/) || [, ''])[1];
     let sameData = false;
     try { sameData = JSON.stringify(JSON.parse(srcData)) === JSON.stringify(JSON.parse(dataBlock)); } catch (e) {}
-    log(js.trim() === srcApp, 'JS 与 src/app.js 一致', js.trim() === srcApp ? '' : '先运行 python build/bundle.py');
+    log(js.trim() === srcApp, 'JS 与 src/js/*.js 一致', js.trim() === srcApp ? '' : '先运行 python build/bundle.py');
     log(cssBlock === srcCss, 'CSS 与 src/styles.css 一致', cssBlock === srcCss ? '' : '先运行 python build/bundle.py');
     log(sameData, '数据与 src/seed-dishes.json 一致', sameData ? '' : '先运行 python build/gen.py');
   } catch (e) {
@@ -87,7 +89,7 @@ if (path.resolve(P) === path.resolve(DEFAULT_P)) {
 /* ---- 7. 体积预算（warn，不 fail）。阈值含内联菜品数据：JSON 块是一行，行数不反映体积 ---- */
 const htmlLines = html.split('\n').length, jsLines = js.split('\n').length;
 const dataKB = Math.round(((html.match(/<script type="application\/json"[^>]*>([\s\S]*?)<\/script>/) || [, ''])[1].length) / 1024);
-if (htmlLines > 3200 || jsLines > 1900) warns.push('体积超预算：HTML ' + htmlLines + ' / JS ' + jsLines + '（发布产物；源码已拆到 src/，可继续模块化 app.js）');
+if (htmlLines > 3200 || jsLines > 1900) warns.push('体积超预算：HTML ' + htmlLines + ' / JS ' + jsLines + '（发布产物；源码已拆到 src/js/，可继续按模块细化）');
 console.log('  INFO 行数 HTML ' + htmlLines + ' / JS ' + jsLines + ' · 内联菜品数据 ' + dataKB + 'KB');
 
 /* ---- 8. 外部请求清单（w3.org 是 SVG 命名空间，不发请求，排除） ---- */
